@@ -67,7 +67,8 @@ resource "aws_iam_policy" "iacer_policy" {
                     "lambda:*",
                     "apigateway:*",
                     "cloudwatch:*",
-                    "events:*"
+                    "events:*",
+                    "iam:*"
                 ],
                 "Resource": "*"
             }
