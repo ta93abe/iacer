@@ -20,3 +20,41 @@ resource "aws_s3_bucket" "contents" {
 resource "aws_s3_bucket" "media" {
   bucket = "iacer-media"
 }
+
+resource "aws_iam_policy" "console_access" {
+  name        = "iacer-console-access"
+  description = "Allow console access"
+
+  policy = <<EOF
+    {
+        "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "iam:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "console:*"
+      ],
+      "Resource": "*"
+    }
+  ]
+    }
+  EOF
+}
+
+
+resource "aws_iam_user" "console_user" {
+  name = "iacer-console-user"
+  path = "/"
+}
+
+resource "aws_iam_user_policy_attachment" "console_access" {
+  user       = aws_iam_user.console_user.name
+  policy_arn = aws_iam_policy.console_access.arn
+}
