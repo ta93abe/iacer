@@ -80,15 +80,16 @@ resource "aws_iam_role" "iam_for_lambda" {
 
 data "archive_file" "lambda" {
   type        = "zip"
-  source_file = "main.js"
-  output_path = "lambda.zip"
+  source_dir  = "${path.module}/lambda"
+  output_path = "${path.module}/main.zip"
 }
 
 
 resource "aws_lambda_function" "backup" {
-  runtime       = "nodejs20.x"
-  filename      = data.archive_file.lambda.output_path
-  function_name = "main"
-  role          = aws_iam_role.iam_for_lambda.arn
-  handler       = "index.handler"
+  function_name    = "main"
+  handler          = "main.handler"
+  runtime          = "nodejs20.x"
+  filename         = data.archive_file.lambda.output_path
+  source_code_hash = filebase64sha256(data.archive_file.lambda.output_path)
+  role             = aws_iam_role.iam_for_lambda.arn
 }
