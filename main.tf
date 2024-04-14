@@ -112,3 +112,89 @@ resource "aws_iam_role" "eventbridge_service_role" {
   name               = "eventbridge_service_role"
   assume_role_policy = data.aws_iam_policy_document.eventbridge_policy.json
 }
+
+data "aws_iam_policy_document" "api_gateway_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    effect  = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["apigateway.amazonaws.com"]
+    }
+  }
+}
+
+data "aws_iam_policy" "iam_policy_AmazonAPIGatewayPushToCloudWatchLogs" {
+  arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+}
+
+data "aws_iam_policy" "iam_policy_AWSLambdaRole" {
+  arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
+}
+
+resource "aws_iam_role_policy_attachment" "api_gateway_policy_logs" {
+  role       = aws_iam_role.api_gateway_role.name
+  policy_arn = data.aws_iam_policy.iam_policy_AmazonAPIGatewayPushToCloudWatchLogs.arn
+}
+
+resource "aws_iam_role_policy_attachment" "api_gateway_policy_lambda" {
+  role       = aws_iam_role.api_gateway_role.name
+  policy_arn = data.aws_iam_policy.iam_policy_AWSLambdaRole.arn
+}
+
+
+resource "aws_iam_role" "api_gateway_role" {
+  name               = "api_gateway_role"
+  assume_role_policy = data.aws_iam_policy_document.api_gateway_assume_role.json
+}
+
+resource "aws_api_gateway_rest_api" "api" {
+  name = "iacer-api"
+  body = jsonencode({
+    openapi = "3.0.1",
+    info = {
+      title   = "IACER API"
+      version = "1.0"
+    },
+    paths = {
+      "/path1" = {
+        get = {
+          x-amazon-apigateway-integration = {
+            httpMethod           = "POST" # LambdaへのアクセスはPOSTでないといけないらしい
+            payloadFormatVersion = "1.0"
+            type                 = "AWS_PROXY"
+            uri                  = aws_lambda_function.backup.invoke_arn
+            credentials          = aws_iam_role.api_gateway_role.arn
+          }
+        }
+      }
+    }
+  })
+}
+
+resource "aws_api_gateway_deployment" "deployment" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  depends_on  = [aws_api_gateway_rest_api.api]
+  stage_name  = "prod"
+  triggers = {
+    redeployment = sha1(jsonencode(aws_api_gateway_rest_api.api))
+  }
+}
+
+
+data "aws_iam_policy_document" "api_gateway_policy" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    actions   = ["execute-api:Invoke"]
+    resources = ["${aws_api_gateway_rest_api.api.execution_arn}/*"]
+  }
+}
+
+resource "aws_api_gateway_rest_api_policy" "policy" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  policy      = data.aws_iam_policy_document.api_gateway_policy.json
+}
