@@ -21,31 +21,20 @@ resource "aws_s3_bucket" "media" {
   bucket = "iacer-media"
 }
 
+
+data "aws_iam_policy_document" "console_json" {
+  statement {
+    actions   = ["iam:*"]
+    resources = ["*"]
+    effect    = "Allow"
+  }
+}
+
 resource "aws_iam_policy" "console_access" {
   name        = "iacer-console-access"
   description = "Allow console access"
 
-  policy = <<EOF
-    {
-        "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "iam:*"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "console:*"
-      ],
-      "Resource": "*"
-    }
-  ]
-    }
-  EOF
+  policy = data.aws_iam_policy_document.console_json.json
 }
 
 
@@ -92,4 +81,34 @@ resource "aws_lambda_function" "backup" {
   filename         = data.archive_file.lambda.output_path
   source_code_hash = filebase64sha256(data.archive_file.lambda.output_path)
   role             = aws_iam_role.iam_for_lambda.arn
+}
+
+
+resource "aws_cloudwatch_event_rule" "eventbridge_rule" {
+  name        = "eventbridge_rule"
+  description = "EventBridge Rule"
+
+  # Run every hour
+  schedule_expression = "cron(0 * * * ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "eventbridge_target" {
+  rule = aws_cloudwatch_event_rule.eventbridge_rule.name
+  arn  = aws_lambda_function.backup.arn
+}
+
+data "aws_iam_policy_document" "eventbridge_policy" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["events.amazonaws.com"]
+    }
+    actions = ["sts:AssumeRole"]
+  }
+}
+
+resource "aws_iam_role" "eventbridge_service_role" {
+  name               = "eventbridge_service_role"
+  assume_role_policy = data.aws_iam_policy_document.eventbridge_policy.json
 }
