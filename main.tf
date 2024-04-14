@@ -134,12 +134,12 @@ data "aws_iam_policy" "iam_policy_AWSLambdaRole" {
 
 resource "aws_iam_role_policy_attachment" "api_gateway_policy_logs" {
   role       = aws_iam_role.api_gateway_role.name
-  policy_arn = data.aws_iam_policy.iam_policy_AmazonAPIGatewayPushToCloudWatchLogs.policy
+  policy_arn = data.aws_iam_policy.iam_policy_AmazonAPIGatewayPushToCloudWatchLogs.arn
 }
 
 resource "aws_iam_role_policy_attachment" "api_gateway_policy_lambda" {
   role       = aws_iam_role.api_gateway_role.name
-  policy_arn = data.aws_iam_policy.iam_policy_AWSLambdaRole.policy
+  policy_arn = data.aws_iam_policy.iam_policy_AWSLambdaRole.arn
 }
 
 
